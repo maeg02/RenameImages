@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CommandLine;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -24,6 +25,16 @@ namespace RenameImages
                 }
                 else
                     dirPath = args[0];
+
+                CommandLine.Parser.Default.ParseArguments<CommandLineOptions>(args)
+                    .WithParsed(options =>
+                {
+                    dirPath = options.Path;
+
+                });
+
+
+
 
                 log.DebugFormat("Working direcory is: {0}", dirPath);
 
@@ -73,17 +84,7 @@ namespace RenameImages
 
                     imageToRename.Dispose();
 
-
-                    if (dateTaken != DateTime.MinValue)
-                        try
-                        {
-                            file.MoveTo(file.Directory.FullName + "\\" + dateTaken.ToString(dateFormats) + file.Extension);
-                        }
-                        catch (Exception)
-                        {
-                            log.ErrorFormat("File with the same name exists: {0}", file.FullName);
-                            return;
-                        }
+                    RenameFile(file, dateFormats, dateTaken);
 
                 };
 
@@ -95,6 +96,32 @@ namespace RenameImages
                 Console.WriteLine(e.ToString());
             }
         }
+
+        private static void RenameFile(FileInfo file, string dateFormats, DateTime dateTaken, int index = 0)
+        {
+            string suggestedName = string.Empty;
+            if (dateTaken != DateTime.MinValue)
+                try
+                {
+                    if (index == 0)
+                    {
+                        suggestedName = file.Directory.FullName + "\\" + dateTaken.ToString(dateFormats) + file.Extension;
+                    }
+                    else
+                    {
+                        suggestedName = file.Directory.FullName + "\\" + dateTaken.ToString(dateFormats) + "-" + index + file.Extension;
+                    }
+
+                    file.MoveTo(suggestedName);
+                }
+                catch (Exception)
+                {
+                    log.ErrorFormat("File with the same name exists: {0}", suggestedName);
+                    RenameFile(file, dateFormats, dateTaken, index + 1);
+                    return;
+                }
+        }
+
         public static DateTime GetDateTaken(Image targetImg, FileInfo fileinfo)
         {
             try
