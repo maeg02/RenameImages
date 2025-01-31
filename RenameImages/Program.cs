@@ -44,10 +44,12 @@ namespace RenameImages
                 CultureInfo provider = CultureInfo.InvariantCulture;
                 string dateFormats = Properties.Settings.Default.dateFormat;
 
+                string[] supportedImageFileExtensions = new string[] { ".jpg", ".jpeg" };
+
 
                 Action<FileInfo> renameFileAction = file =>
                 {
-                    if (!file.Extension.Equals(".jpg", StringComparison.CurrentCultureIgnoreCase))
+                    if (!supportedImageFileExtensions.Contains(file.Extension.ToLower()))
                         return;
 
                     string name = file.Name.Replace(file.Extension, "");
