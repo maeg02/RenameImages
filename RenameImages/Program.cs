@@ -1,12 +1,11 @@
 ﻿using CommandLine;
+using MetadataExtractor;
+using MetadataExtractor.Formats.Exif;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace RenameImages
 {
@@ -44,7 +43,7 @@ namespace RenameImages
                 CultureInfo provider = CultureInfo.InvariantCulture;
                 string dateFormats = Properties.Settings.Default.dateFormat;
 
-                string[] supportedImageFileExtensions = new string[] { ".jpg", ".jpeg" };
+                string[] supportedImageFileExtensions = new string[] { ".jpg", ".jpeg", ".heic", ".heif" };
 
 
                 Action<FileInfo> renameFileAction = file =>
@@ -61,30 +60,7 @@ namespace RenameImages
                         return;
 
 
-                    Image imageToRename = null;
-                    try
-                    {
-                        imageToRename = Image.FromFile(file.FullName);
-                    }
-                    catch (OutOfMemoryException)
-                    {
-                        log.WarnFormat("Not abel to load as an image: {0}", file.FullName);
-                        return;
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        log.WarnFormat("File no longer present: {0}", file.FullName);
-                        return;
-                    }
-                    catch (Exception exception)
-                    {
-                        log.Error("Exception when trying to read the file as an Image: " + file.FullName, exception);
-                        return;
-                    }
-
-                    dateTaken = GetDateTaken(imageToRename, file);
-
-                    imageToRename.Dispose();
+                    dateTaken = GetDateTaken(file);
 
                     RenameFile(file, dateFormats, dateTaken);
 
@@ -124,26 +100,44 @@ namespace RenameImages
                 }
         }
 
-        public static DateTime GetDateTaken(Image targetImg, FileInfo fileinfo)
+        public static DateTime GetDateTaken(FileInfo fileinfo)
         {
             try
             {
-                //Property Item 36867 corresponds to the Date Taken
-                PropertyItem propItem = targetImg.GetPropertyItem(36867);
-                DateTime dtaken;
+                IReadOnlyList<MetadataExtractor.Directory> directories = ImageMetadataReader.ReadMetadata(fileinfo.FullName);
 
-                //Convert date taken metadata to a DateTime object
-                string sdate = Encoding.UTF8.GetString(propItem.Value).Trim();
-                string secondhalf = sdate.Substring(sdate.IndexOf(" "), (sdate.Length - sdate.IndexOf(" ")));
-                string firsthalf = sdate.Substring(0, 10);
-                firsthalf = firsthalf.Replace(":", "-");
-                sdate = firsthalf + secondhalf;
-                dtaken = DateTime.Parse(sdate);
-                return dtaken;
+                DateTime dateTaken;
+
+                ExifSubIfdDirectory exifSubIfdDirectory = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
+                if (exifSubIfdDirectory != null &&
+                    exifSubIfdDirectory.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out dateTaken))
+                {
+                    return dateTaken;
+                }
+
+                ExifIfd0Directory exifIfd0Directory = directories.OfType<ExifIfd0Directory>().FirstOrDefault();
+                if (exifIfd0Directory != null &&
+                    exifIfd0Directory.TryGetDateTime(ExifDirectoryBase.TagDateTime, out dateTaken))
+                {
+                    return dateTaken;
+                }
+
+                log.WarnFormat("No supported capture date metadata found: {0}", fileinfo.FullName);
+                return DateTime.MinValue;
             }
-            catch (Exception e)
+            catch (ImageProcessingException exception)
             {
-                log.Error("Cannot find property for image: " + fileinfo.FullName, e);
+                log.WarnFormat("Not able to read metadata from image: {0}. {1}", fileinfo.FullName, exception.Message);
+                return DateTime.MinValue;
+            }
+            catch (FileNotFoundException)
+            {
+                log.WarnFormat("File no longer present: {0}", fileinfo.FullName);
+                return DateTime.MinValue;
+            }
+            catch (Exception exception)
+            {
+                log.Error("Cannot read date metadata for image: " + fileinfo.FullName, exception);
                 return DateTime.MinValue;
             }
         }
