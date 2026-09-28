@@ -122,7 +122,13 @@ namespace RenameImages
                     return dateTaken;
                 }
 
-                log.WarnFormat("No supported capture date metadata found: {0}", fileinfo.FullName);
+                log.WarnFormat("No supported capture date metadata found: {0}, guessing on file name", fileinfo.FullName);
+
+                if (TryParseDateTakenFromFileName(fileinfo.Name, out dateTaken))
+                {
+                    return dateTaken;
+                }
+
                 return DateTime.MinValue;
             }
             catch (ImageProcessingException exception)
@@ -140,6 +146,32 @@ namespace RenameImages
                 log.Error("Cannot read date metadata for image: " + fileinfo.FullName, exception);
                 return DateTime.MinValue;
             }
+        }
+
+        private static bool TryParseDateTakenFromFileName(string fileName, out DateTime dateTaken)
+        {
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+
+            if (fileNameWithoutExtension.Length >= 18)
+            {
+                var datePrefixWithMilliseconds = fileNameWithoutExtension.Substring(0, 18);
+                if (DateTime.TryParseExact(datePrefixWithMilliseconds, "yyyyMMdd_HHmmssfff", CultureInfo.InvariantCulture, DateTimeStyles.None, out dateTaken))
+                {
+                    return true;
+                }
+            }
+
+            if (fileNameWithoutExtension.Length >= 15)
+            {
+                var datePrefix = fileNameWithoutExtension.Substring(0, 15);
+                if (DateTime.TryParseExact(datePrefix, "yyyyMMdd_HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out dateTaken))
+                {
+                    return true;
+                }
+            }
+
+            dateTaken = DateTime.MinValue;
+            return false;
         }
 
         public static void DirTraverse(DirectoryInfo dir, Action<FileInfo> action)
