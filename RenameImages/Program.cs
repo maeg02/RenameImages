@@ -1,5 +1,4 @@
-﻿using CommandLine;
-using MetadataExtractor;
+﻿using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
 using System;
 using System.Collections.Generic;
@@ -17,23 +16,7 @@ namespace RenameImages
         {
             try
             {
-                string dirPath;
-                if (args.Length == 0)
-                {
-                    dirPath = Environment.CurrentDirectory;
-                }
-                else
-                    dirPath = args[0];
-
-                CommandLine.Parser.Default.ParseArguments<CommandLineOptions>(args)
-                    .WithParsed(options =>
-                {
-                    dirPath = options.Path;
-
-                });
-
-
-
+                string dirPath = GetDirectoryPathFromArgs(args);
 
                 log.DebugFormat("Working direcory is: {0}", dirPath);
 
@@ -73,6 +56,45 @@ namespace RenameImages
             {
                 Console.WriteLine(e.ToString());
             }
+        }
+
+        private static string GetDirectoryPathFromArgs(string[] args)
+        {
+            if (args == null || args.Length == 0)
+            {
+                return Environment.CurrentDirectory;
+            }
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                string current = args[i];
+
+                if (string.Equals(current, "-p", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(current, "--path", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (i + 1 < args.Length && !string.IsNullOrWhiteSpace(args[i + 1]))
+                    {
+                        return args[i + 1];
+                    }
+
+                    throw new ArgumentException("Missing value for -p/--path option.");
+                }
+            }
+
+            string firstArg = args[0];
+            if (firstArg.StartsWith("-p=", StringComparison.OrdinalIgnoreCase) ||
+                firstArg.StartsWith("--path=", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = firstArg.Split('=', 2);
+                if (parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                {
+                    return parts[1];
+                }
+
+                throw new ArgumentException("Missing value for -p/--path option.");
+            }
+
+            return firstArg;
         }
 
         private static void RenameFile(FileInfo file, string dateFormats, DateTime dateTaken, int index = 0)
