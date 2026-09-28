@@ -41,7 +41,7 @@ namespace RenameImages
                 log.Info("Proccessing files");
 
                 CultureInfo provider = CultureInfo.InvariantCulture;
-                string dateFormats = Properties.Settings.Default.dateFormat;
+                const string dateFormats = "yyyy-MM-dd HH.mm.ss";
 
                 string[] supportedImageFileExtensions = new string[] { ".jpg", ".jpeg", ".heic", ".heif" };
 
@@ -81,13 +81,15 @@ namespace RenameImages
             if (dateTaken != DateTime.MinValue)
                 try
                 {
+                    string directoryPath = file.DirectoryName ?? string.Empty;
+
                     if (index == 0)
                     {
-                        suggestedName = file.Directory.FullName + "\\" + dateTaken.ToString(dateFormats) + file.Extension;
+                        suggestedName = Path.Combine(directoryPath, dateTaken.ToString(dateFormats) + file.Extension);
                     }
                     else
                     {
-                        suggestedName = file.Directory.FullName + "\\" + dateTaken.ToString(dateFormats) + "-" + index + file.Extension;
+                        suggestedName = Path.Combine(directoryPath, dateTaken.ToString(dateFormats) + "-" + index + file.Extension);
                     }
 
                     file.MoveTo(suggestedName);
@@ -176,7 +178,7 @@ namespace RenameImages
 
         public static void DirTraverse(DirectoryInfo dir, Action<FileInfo> action)
         {
-            log.InfoFormat("Current traversing folder: {0}", dir.FullName);
+            log.InfoFormat("Current traversing folder: {0}", dir.ToString());
             try
             {
                 foreach (FileInfo fi in dir.GetFiles())
@@ -198,7 +200,7 @@ namespace RenameImages
             }
             catch (System.Exception excpt)
             {
-                log.Error("Exception when traversing directories, current folder: " + dir.FullName, excpt);
+                log.Error("Exception when traversing directories, current folder: " + dir.ToString(), excpt);
             }
         }
     }
