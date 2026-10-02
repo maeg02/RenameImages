@@ -97,31 +97,25 @@ namespace RenameImages
             return firstArg;
         }
 
-        private static void RenameFile(FileInfo file, string dateFormats, DateTime dateTaken, int index = 0)
+        internal static void RenameFile(FileInfo file, string dateFormats, DateTime dateTaken)
         {
-            string suggestedName = string.Empty;
-            if (dateTaken != DateTime.MinValue)
-                try
-                {
-                    string directoryPath = file.DirectoryName ?? string.Empty;
+            if (dateTaken == DateTime.MinValue)
+            {
+                return;
+            }
 
-                    if (index == 0)
-                    {
-                        suggestedName = Path.Combine(directoryPath, dateTaken.ToString(dateFormats) + file.Extension);
-                    }
-                    else
-                    {
-                        suggestedName = Path.Combine(directoryPath, dateTaken.ToString(dateFormats) + "-" + index + file.Extension);
-                    }
+            string directoryPath = file.DirectoryName ?? string.Empty;
+            string baseName = dateTaken.ToString(dateFormats, CultureInfo.InvariantCulture);
+            string suggestedName = Path.Combine(directoryPath, baseName + file.Extension);
+            int index = 1;
 
-                    file.MoveTo(suggestedName);
-                }
-                catch (Exception)
-                {
-                    log.ErrorFormat("File with the same name exists: {0}", suggestedName);
-                    RenameFile(file, dateFormats, dateTaken, index + 1);
-                    return;
-                }
+            while (File.Exists(suggestedName))
+            {
+                suggestedName = Path.Combine(directoryPath, baseName + "-" + index + file.Extension);
+                index++;
+            }
+
+            file.MoveTo(suggestedName);
         }
 
         public static DateTime GetDateTaken(FileInfo fileinfo)
@@ -172,7 +166,7 @@ namespace RenameImages
             }
         }
 
-        private static bool TryParseDateTakenFromFileName(string fileName, out DateTime dateTaken)
+        internal static bool TryParseDateTakenFromFileName(string fileName, out DateTime dateTaken)
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
 
